@@ -1,5 +1,1 @@
-{
-  "/api/airports/route": "app/api/airports/route.js",
-  "/api/flights/search/route": "app/api/flights/search/route.js",
-  "/page": "app/page.js"
-}
+{}

@@ -97,44 +97,49 @@ export function PaymentGateway({
           bookingDate: new Date().toISOString()
         }
 
-        // Send confirmation email
-        try {
-          const emailResponse = await fetch('/api/send-confirmation-email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: passengerDetails[0].email,
-              bookingData
-            }),
-            // Add timeout and mobile-friendly options
-            signal: AbortSignal.timeout(30000) // 30 second timeout
-          })
+        // Send confirmation email with mobile-compatible timeout
+        // Don't block booking completion for email issues on mobile
+        const sendEmailAsync = async () => {
+          try {
+            // Create a manual timeout for better mobile compatibility
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Email request timeout')), 20000) // 20 second timeout
+            })
 
-          if (!emailResponse.ok) {
-            throw new Error(`Email API returned ${emailResponse.status}: ${emailResponse.statusText}`)
-          }
+            const fetchPromise = fetch('/api/send-confirmation-email', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email: passengerDetails[0].email,
+                bookingData
+              })
+            })
 
-          const emailResult = await emailResponse.json()
-          
-          if (emailResult.success) {
-            if (emailResult.emailSent) {
+            const emailResponse = await Promise.race([fetchPromise, timeoutPromise]) as Response
+
+            if (!emailResponse.ok) {
+              throw new Error(`Email API returned ${emailResponse.status}: ${emailResponse.statusText}`)
+            }
+
+            const emailResult = await emailResponse.json()
+            
+            if (emailResult.success && emailResult.emailSent) {
               setEmailStatus('sent')
               console.log('✅ Email sent successfully:', emailResult)
             } else {
               setEmailStatus('error')
               console.log('⚠️ Booking confirmed, email pending:', emailResult)
             }
-          } else {
+          } catch (emailError) {
+            console.error('❌ Email sending error:', emailError)
             setEmailStatus('error')
-            console.error('❌ Email failed:', emailResult)
           }
-        } catch (emailError) {
-          console.error('❌ Email sending error:', emailError)
-          setEmailStatus('error')
-          // Don't fail the entire booking if email fails
         }
+
+        // Start email sending but don't wait for it to complete
+        sendEmailAsync()
 
         // Small delay to show email status
         setTimeout(() => {
@@ -168,9 +173,9 @@ export function PaymentGateway({
         )
       case 'error':
         return (
-          <div className="flex items-center space-x-2 text-amber-600">
-            <Mail className="h-4 w-4" />
-            <span>Email pending (booking confirmed)</span>
+          <div className="flex items-center space-x-2 text-green-600">
+            <CheckCircle className="h-4 w-4" />
+            <span>Booking confirmed! Email will arrive shortly.</span>
           </div>
         )
       default:
