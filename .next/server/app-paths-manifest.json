@@ -1,5 +1,4 @@
 {
   "/page": "app/page.js",
-  "/api/auth/login/route": "app/api/auth/login/route.js",
-  "/api/send-confirmation-email/route": "app/api/send-confirmation-email/route.js"
+  "/api/generate-ticket-pdf/route": "app/api/generate-ticket-pdf/route.js"
 }

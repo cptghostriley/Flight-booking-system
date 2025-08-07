@@ -1,10 +1,12 @@
 "use client"
 
+import { useState } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Plane, Calendar, Clock, MapPin, User, Download, Mail } from 'lucide-react'
+import { Plane, Calendar, Clock, MapPin, User, Download, Mail, Loader2 } from 'lucide-react'
+import { useToast } from "@/hooks/use-toast"
 
 interface Flight {
   id: string
@@ -49,11 +51,94 @@ interface PlaneTicketProps {
 }
 
 export function PlaneTicket({ bookingData, onNewBooking }: PlaneTicketProps) {
-  const { bookingReference, flights, passengers, totalAmount, bookingDate } = bookingData
+  const { bookingReference, flights, passengers, totalAmount } = bookingData
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [isEmailing, setIsEmailing] = useState(false)
+  const { toast } = useToast()
+
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true)
+    try {
+      const response = await fetch('/api/generate-ticket-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingData,
+          action: 'download'
+        })
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `ticket-${bookingReference}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+        
+        toast({
+          title: "Success!",
+          description: "Your ticket PDF has been downloaded.",
+        })
+      } else {
+        throw new Error('Failed to download PDF')
+      }
+    } catch (error) {
+      console.error('PDF download error:', error)
+      toast({
+        title: "Error",
+        description: "Failed to download ticket PDF. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
+  const handleEmailTickets = async () => {
+    setIsEmailing(true)
+    try {
+      const response = await fetch('/api/generate-ticket-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingData,
+          action: 'email'
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Email Sent!",
+          description: `Your ticket has been sent to ${passengers[0].email}`,
+        })
+      } else {
+        throw new Error(data.error || 'Failed to send email')
+      }
+    } catch (error) {
+      console.error('Email error:', error)
+      toast({
+        title: "Error",
+        description: "Failed to send ticket via email. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsEmailing(false)
+    }
+  }
 
   const TicketCard = ({ flight, passenger, type }: { 
     flight: Flight; 
-    passenger: any; 
+    passenger: typeof passengers[0]; 
     type: 'outbound' | 'return' 
   }) => (
     <Card className="mb-6 overflow-hidden">
@@ -214,13 +299,23 @@ export function PlaneTicket({ bookingData, onNewBooking }: PlaneTicketProps) {
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        <Button variant="outline" className="flex items-center space-x-2">
-          <Download className="h-4 w-4" />
-          <span>Download PDF</span>
+        <Button 
+          variant="outline" 
+          className="flex items-center space-x-2"
+          onClick={handleDownloadPDF}
+          disabled={isDownloading}
+        >
+          {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          <span>{isDownloading ? 'Generating...' : 'Download PDF'}</span>
         </Button>
-        <Button variant="outline" className="flex items-center space-x-2">
-          <Mail className="h-4 w-4" />
-          <span>Email Tickets</span>
+        <Button 
+          variant="outline" 
+          className="flex items-center space-x-2"
+          onClick={handleEmailTickets}
+          disabled={isEmailing}
+        >
+          {isEmailing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+          <span>{isEmailing ? 'Sending...' : 'Email Tickets'}</span>
         </Button>
         <Button onClick={onNewBooking}>
           Book Another Flight
