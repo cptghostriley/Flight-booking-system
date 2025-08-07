@@ -56,11 +56,17 @@ export function PaymentGateway({
   onBack 
 }: PaymentGatewayProps) {
   const [paymentMethod, setPaymentMethod] = useState('card')
+  
+  // Auto-fill cardholder name with the primary passenger's name
+  const primaryPassenger = passengerDetails[0]
+  const defaultCardholderName = primaryPassenger ? 
+    `${primaryPassenger.firstName} ${primaryPassenger.lastName}`.trim() : ''
+  
   const [cardDetails, setCardDetails] = useState({
     cardNumber: '',
     expiryDate: '',
     cvv: '',
-    cardholderName: ''
+    cardholderName: defaultCardholderName
   })
   const [billingAddress, setBillingAddress] = useState({
     address: '',
@@ -400,7 +406,7 @@ export function PaymentGateway({
                 <p className="font-semibold">Passengers:</p>
                 {passengerDetails.map((passenger, index) => (
                   <p key={index} className="text-muted-foreground">
-                    {passenger.firstName} {passenger.lastName}
+                    {passenger.firstName}{passenger.lastName ? ` ${passenger.lastName}` : ''}
                   </p>
                 ))}
               </div>

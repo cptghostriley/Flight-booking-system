@@ -2,18 +2,17 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plane, Eye, EyeOff, X } from 'lucide-react' // Added X icon for close button
+import { Plane, Eye, EyeOff } from 'lucide-react'
 
 interface LoginFormProps {
   onLoginSuccess: () => void
-  onClose: () => void // New prop to close the modal
 }
 
-export function LoginForm({ onLoginSuccess, onClose }: LoginFormProps) {
+export function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [loginData, setLoginData] = useState({
@@ -50,7 +49,7 @@ export function LoginForm({ onLoginSuccess, onClose }: LoginFormProps) {
         localStorage.setItem('user', JSON.stringify(result.user)) // Store user object including ID
         localStorage.setItem('token', result.token)
         onLoginSuccess()
-        onClose() // Close modal on success
+        // Dialog will close automatically via onOpenChange
       } else {
         setLoginError(result.error || 'Login failed')
       }
@@ -92,7 +91,7 @@ export function LoginForm({ onLoginSuccess, onClose }: LoginFormProps) {
         localStorage.setItem('user', JSON.stringify(result.user)) // Store user object including ID
         localStorage.setItem('token', result.token)
         onLoginSuccess()
-        onClose() // Close modal on success
+        // Dialog will close automatically via onOpenChange
       } else {
         setSignupError(result.error || 'Signup failed')
       }
@@ -105,16 +104,7 @@ export function LoginForm({ onLoginSuccess, onClose }: LoginFormProps) {
   }
 
   return (
-    <Card className="w-full max-w-md relative"> {/* Added relative for close button positioning */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="absolute top-2 right-2 h-8 w-8 p-0"
-        onClick={onClose}
-      >
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </Button>
+    <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <div className="flex items-center justify-center space-x-2 mb-4">
           <Plane className="h-8 w-8 text-blue-600" />

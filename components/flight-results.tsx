@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plane, Clock, Calendar } from 'lucide-react'
+import { Plane, Clock } from 'lucide-react'
 
 interface Flight {
   id: string
@@ -35,10 +35,10 @@ interface FlightResultsProps {
 
 const FlightCard = ({ flight, onSelect }: { flight: Flight; onSelect: () => void }) => (
   <Card className="mb-4">
-    <CardContent className="p-6">
-      <div className="flex items-center justify-between">
+    <CardContent className="p-4 lg:p-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
         <div className="flex-1">
-          <div className="flex items-center space-x-4 mb-4">
+          <div className="flex flex-wrap items-center gap-2 lg:gap-4 mb-4">
             <div className="text-lg font-semibold">{flight.airline}</div>
             <Badge variant="secondary">{flight.flightNumber}</Badge>
             <Badge variant={flight.stops === 0 ? "default" : "secondary"}>
@@ -46,8 +46,8 @@ const FlightCard = ({ flight, onSelect }: { flight: Flight; onSelect: () => void
             </Badge>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-            <div className="text-center">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+            <div className="text-center lg:text-left">
               <div className="text-2xl font-bold">{flight.departure.time}</div>
               <div className="text-sm text-muted-foreground">{flight.departure.airport}</div>
               <div className="text-xs text-muted-foreground">{flight.departure.date}</div>
@@ -66,7 +66,7 @@ const FlightCard = ({ flight, onSelect }: { flight: Flight; onSelect: () => void
               <div className="text-xs text-muted-foreground">{flight.aircraft}</div>
             </div>
             
-            <div className="text-center">
+            <div className="text-center lg:text-right">
               <div className="text-2xl font-bold">{flight.arrival.time}</div>
               <div className="text-sm text-muted-foreground">{flight.arrival.airport}</div>
               <div className="text-xs text-muted-foreground">{flight.arrival.date}</div>
@@ -74,10 +74,10 @@ const FlightCard = ({ flight, onSelect }: { flight: Flight; onSelect: () => void
           </div>
         </div>
         
-        <div className="ml-6 text-right">
+        <div className="mt-4 lg:mt-0 lg:ml-6 flex flex-col lg:flex-row items-center lg:items-end justify-between lg:justify-end space-y-2 lg:space-y-0 lg:space-x-4">
           <div className="text-2xl font-bold text-blue-600">${flight.price}</div>
           <Button 
-            className="mt-2" 
+            className="w-full lg:w-auto" 
             onClick={onSelect}
           >
             Select Flight

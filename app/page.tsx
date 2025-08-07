@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CalendarIcon, Plane, Search, Users, Check, LogOut } from 'lucide-react'
 import { AirportSearch } from "@/components/airport-search"
@@ -139,10 +138,17 @@ export default function FlightBookingHome() {
       const userEmail = user?.email || 'demo@example.com'
       const userName = user?.name || 'Demo User'
       
+      // Parse user name properly
+      const nameParts = userName.trim().split(' ')
+      const userFirstName = nameParts[0] || 'John'
+      const userLastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''
+      
+      console.log('User data for booking:', { userName, userFirstName, userLastName, userEmail })
+      
       const passengers = Array.from({ length: searchParams.passengers }, (_, i) => ({
         id: i + 1,
-        firstName: i === 0 ? userName.split(' ')[0] || 'John' : `Passenger${i + 1}`, // Pre-fill first passenger
-        lastName: i === 0 ? userName.split(' ')[1] || 'Doe' : `LastName${i + 1}`,
+        firstName: i === 0 ? userFirstName : `Passenger${i + 1}`, // Pre-fill first passenger
+        lastName: i === 0 ? userLastName : `LastName${i + 1}`,
         email: i === 0 ? userEmail : `passenger${i + 1}@example.com`,
         phone: i === 0 ? '+1234567890' : `+123456789${i}`,
         dateOfBirth: '1990-01-01',
@@ -175,7 +181,15 @@ export default function FlightBookingHome() {
   }
 
   const handleSearch = async () => {
+    console.log('Search button clicked!')
+    console.log('Current search params:', searchParams)
+    
     if (!searchParams.from || !searchParams.to || !searchParams.departDate) {
+      console.log('Missing required fields:', {
+        from: searchParams.from,
+        to: searchParams.to,
+        departDate: searchParams.departDate
+      })
       alert('Please fill in all required fields')
       return
     }
@@ -230,13 +244,19 @@ export default function FlightBookingHome() {
                 <div className="flex space-x-4">
                   <Button
                     variant={searchParams.tripType === 'round-trip' ? 'default' : 'outline'}
-                    onClick={() => setSearchParams(prev => ({ ...prev, tripType: 'round-trip' }))}
+                    onClick={() => {
+                      console.log('Round trip button clicked')
+                      setSearchParams(prev => ({ ...prev, tripType: 'round-trip' }))
+                    }}
                   >
                     Round Trip
                   </Button>
                   <Button
                     variant={searchParams.tripType === 'one-way' ? 'default' : 'outline'}
-                    onClick={() => setSearchParams(prev => ({ ...prev, tripType: 'one-way' }))}
+                    onClick={() => {
+                      console.log('One way button clicked')
+                      setSearchParams(prev => ({ ...prev, tripType: 'one-way' }))
+                    }}
                   >
                     One Way
                   </Button>
@@ -248,7 +268,10 @@ export default function FlightBookingHome() {
                     <Label htmlFor="from">From</Label>
                     <AirportSearch
                       placeholder="Departure airport"
-                      onSelect={(airport) => setSearchParams(prev => ({ ...prev, from: airport }))}
+                      onSelect={(airport) => {
+                        console.log('From airport selected:', airport)
+                        setSearchParams(prev => ({ ...prev, from: airport }))
+                      }}
                       selectedAirport={searchParams.from}
                     />
                   </div>
@@ -256,7 +279,10 @@ export default function FlightBookingHome() {
                     <Label htmlFor="to">To</Label>
                     <AirportSearch
                       placeholder="Destination airport"
-                      onSelect={(airport) => setSearchParams(prev => ({ ...prev, to: airport }))}
+                      onSelect={(airport) => {
+                        console.log('To airport selected:', airport)
+                        setSearchParams(prev => ({ ...prev, to: airport }))
+                      }}
                       selectedAirport={searchParams.to}
                     />
                   </div>
@@ -338,7 +364,10 @@ export default function FlightBookingHome() {
 
                 {/* Search Button */}
                 <Button 
-                  onClick={handleSearch} 
+                  onClick={() => {
+                    console.log('Search button clicked - direct handler')
+                    handleSearch()
+                  }} 
                   className="w-full md:w-auto"
                   disabled={isSearching}
                 >
@@ -419,20 +448,22 @@ export default function FlightBookingHome() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Plane className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">SkyBooker</h1>
+              <Plane className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">SkyBooker</h1>
             </div>
             {user ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-700">Hello, {user.name}!</span>
-                <Button variant="outline" onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Logout
+              <div className="flex items-center space-x-2 sm:space-x-4">
+                <span className="text-sm sm:text-base text-gray-700 hidden sm:block">Hello, {user.name}!</span>
+                <span className="text-sm text-gray-700 sm:hidden">Hi, {user.name.split(' ')[0]}!</span>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <LogOut className="mr-0 sm:mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Logout</span>
                 </Button>
               </div>
             ) : (
-              <Button variant="outline" onClick={() => setShowLoginModal(true)}>
-                Login / Sign Up
+              <Button variant="outline" size="sm" onClick={() => setShowLoginModal(true)}>
+                <span className="hidden sm:inline">Login / Sign Up</span>
+                <span className="sm:hidden">Login</span>
               </Button>
             )}
           </div>
@@ -446,7 +477,7 @@ export default function FlightBookingHome() {
       {/* Login/Signup Modal */}
       <Dialog open={showLoginModal} onOpenChange={setShowLoginModal}>
         <DialogContent className="p-0">
-          <LoginForm onLoginSuccess={handleLoginSuccess} onClose={() => setShowLoginModal(false)} />
+          <LoginForm onLoginSuccess={handleLoginSuccess} />
         </DialogContent>
       </Dialog>
     </div>

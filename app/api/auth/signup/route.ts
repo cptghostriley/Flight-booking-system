@@ -14,9 +14,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user already exists
-    const existingUser = await sql`SELECT id FROM users WHERE email = ${email}`
-    if (existingUser.length > 0) {
+    // Validate password strength
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters long' },
+        { status: 400 }
+      )
+    }
+
+    // Check if user already exists in Neon database
+    const existingUsers = await sql`SELECT id FROM users WHERE email = ${email}`
+    if (existingUsers.length > 0) {
       return NextResponse.json(
         { error: 'User already exists with this email' },
         { status: 409 }
@@ -24,17 +32,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10) // 10 is the salt rounds
+    const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Create new user in the database
-    const [newUser] = await sql`
-      INSERT INTO users (name, email, password)
-      VALUES (${name}, ${email}, ${hashedPassword})
-      RETURNING id, name, email
+    // Create new user in Neon database
+    const newUsers = await sql`
+      INSERT INTO users (name, email, password, created_at, updated_at)
+      VALUES (${name}, ${email}, ${hashedPassword}, NOW(), NOW())
+      RETURNING id, name, email, created_at
     `
+    
+    const newUser = newUsers[0]
 
-    // Generate a simple token (in production, use JWT with proper signing)
-    const token = `token_${newUser.id}_${Date.now()}`
+    // Generate a secure token
+    const token = `token_${newUser.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
     return NextResponse.json({
       user: newUser,

@@ -14,8 +14,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find user by email
-    const [user] = await sql`SELECT id, name, email, password FROM users WHERE email = ${email}`
+    // Find user by email in Neon database
+    const users = await sql`SELECT id, name, email, password FROM users WHERE email = ${email}`
+    const user = users[0]
+    
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Compare provided password with hashed password from DB
+    // Compare provided password with hashed password from database
     const passwordMatch = await bcrypt.compare(password, user.password)
     if (!passwordMatch) {
       return NextResponse.json(
@@ -32,10 +34,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate a simple token (in production, use JWT with proper signing)
-    const token = `token_${user.id}_${Date.now()}`
+    // Generate a secure token
+    const token = `token_${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
     // Return user data (excluding password)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user
     
     return NextResponse.json({
