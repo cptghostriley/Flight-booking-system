@@ -1,7 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
+
+// Gmail configuration for fallback email sending
+const createGmailTransporter = () => {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER, // Your Gmail address
+      pass: process.env.GMAIL_APP_PASSWORD // Gmail App Password (not regular password)
+    }
+  })
+}
+
+// Send email using Gmail as fallback
+const sendEmailWithGmail = async (to: string, subject: string, html: string, text: string) => {
+  const transporter = createGmailTransporter()
+  
+  const mailOptions = {
+    from: `"SkyBooker" <${process.env.GMAIL_USER}>`,
+    replyTo: process.env.GMAIL_USER,
+    to: to,
+    subject: subject,
+    html: html,
+    text: text,
+    // Add the same styling and formatting as Resend
+    attachDataUrls: true
+  }
+  
+  return await transporter.sendMail(mailOptions)
+}
 
 interface Passenger {
   firstName: string
@@ -73,41 +103,109 @@ export async function POST(request: NextRequest) {
     const emailHtml = generateHtmlContent(bookingData)
 
     try {
-      // Send actual email using Resend with timeout handling
+      // First, try sending with Resend
+      console.log(`📧 Attempting to send email to: ${email}`)
+      
       const { data, error } = await resend.emails.send({
         from: 'SkyBooker <onboarding@resend.dev>',
         to: [email],
         subject: `Flight Booking Confirmed - ${bookingData.bookingReference}`,
         html: emailHtml,
-        text: emailContent
+        text: emailContent,
+        // Ensure consistent formatting
+        replyTo: process.env.GMAIL_USER || 'noreply@skyBooker.com'
       })
 
       if (error) {
-        console.error('Resend error:', error)
+        console.error('Resend failed, trying Gmail fallback:', error)
         
-        // Return success but note email issue for mobile compatibility
-        return NextResponse.json({
-          success: true,
-          message: 'Booking confirmed, email will be sent shortly',
-          emailSent: false,
-          error: 'Email delivery pending',
-          bookingReference: bookingData.bookingReference
-        }, { headers })
+        // Try Gmail fallback if Resend fails
+        if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+          try {
+            console.log('📧 Sending via Gmail fallback...')
+            const gmailResult = await sendEmailWithGmail(
+              email,
+              `Flight Booking Confirmed - ${bookingData.bookingReference}`,
+              emailHtml,
+              emailContent
+            )
+            
+            console.log('✅ Email sent successfully via Gmail:', gmailResult.messageId)
+            
+            return NextResponse.json({
+              success: true,
+              message: 'Confirmation email sent successfully via Gmail',
+              emailSent: true,
+              emailId: gmailResult.messageId,
+              provider: 'gmail',
+              bookingReference: bookingData.bookingReference
+            }, { headers })
+            
+          } catch (gmailError) {
+            console.error('Gmail fallback also failed:', gmailError)
+            
+            return NextResponse.json({
+              success: true,
+              message: 'Booking confirmed, email will be sent shortly',
+              emailSent: false,
+              error: 'Both email services temporarily unavailable',
+              bookingReference: bookingData.bookingReference
+            }, { headers })
+          }
+        } else {
+          console.log('Gmail not configured, skipping fallback')
+          
+          return NextResponse.json({
+            success: true,
+            message: 'Booking confirmed, email will be sent shortly',
+            emailSent: false,
+            error: 'Email delivery pending',
+            bookingReference: bookingData.bookingReference
+          }, { headers })
+        }
       }
 
-      console.log('✅ Email sent successfully:', data)
+      console.log('✅ Email sent successfully via Resend:', data)
       
       return NextResponse.json({
         success: true,
         message: 'Confirmation email sent successfully',
         emailSent: true,
         emailId: data?.id,
+        provider: 'resend',
         bookingReference: bookingData.bookingReference
       }, { headers })
     } catch (emailError) {
       console.error('Email send exception:', emailError)
       
-      // Still return success for booking but note email issue
+      // Try Gmail fallback if Resend throws an exception
+      if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+        try {
+          console.log('📧 Exception occurred, trying Gmail fallback...')
+          const gmailResult = await sendEmailWithGmail(
+            email,
+            `Flight Booking Confirmed - ${bookingData.bookingReference}`,
+            emailHtml,
+            emailContent
+          )
+          
+          console.log('✅ Email sent successfully via Gmail fallback:', gmailResult.messageId)
+          
+          return NextResponse.json({
+            success: true,
+            message: 'Confirmation email sent successfully via Gmail',
+            emailSent: true,
+            emailId: gmailResult.messageId,
+            provider: 'gmail',
+            bookingReference: bookingData.bookingReference
+          }, { headers })
+          
+        } catch (gmailError) {
+          console.error('Gmail fallback also failed:', gmailError)
+        }
+      }
+      
+      // Both services failed
       return NextResponse.json({
         success: true,
         message: 'Booking confirmed, email will be sent shortly',
