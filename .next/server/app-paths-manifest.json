@@ -1,1 +1,11 @@
-{}
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/airports/route": "app/api/airports/route.js",
+  "/api/bookings/create/route": "app/api/bookings/create/route.js",
+  "/api/send-confirmation-email/route": "app/api/send-confirmation-email/route.js",
+  "/api/flights/search/route": "app/api/flights/search/route.js",
+  "/page": "app/page.js",
+  "/api/auth/logout/route": "app/api/auth/logout/route.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/auth/signup/route": "app/api/auth/signup/route.js"
+}
