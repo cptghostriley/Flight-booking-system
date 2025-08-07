@@ -44,6 +44,11 @@ interface PlaneTicketProps {
       gender: string
     }>
     totalAmount: number
+    selectedSeat?: {
+      seatNumber: string
+      seatType: string
+      price: number
+    }
     status: string
     bookingDate: string
   }
@@ -218,7 +223,7 @@ export function PlaneTicket({ bookingData, onNewBooking }: PlaneTicketProps) {
             <h4 className="font-semibold text-gray-700 mb-2">Booking Details</h4>
             <div className="space-y-1">
               <p className="text-sm"><span className="font-medium">Booking Ref:</span> {bookingReference}</p>
-              <p className="text-sm"><span className="font-medium">Seat:</span> {Math.floor(Math.random() * 30) + 1}A</p>
+              <p className="text-sm"><span className="font-medium">Seat:</span> {bookingData.selectedSeat?.seatNumber || 'Not selected'}</p>
               <p className="text-sm"><span className="font-medium">Gate:</span> {String.fromCharCode(65 + Math.floor(Math.random() * 10))}{Math.floor(Math.random() * 20) + 1}</p>
             </div>
           </div>

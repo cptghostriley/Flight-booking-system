@@ -1,4 +1,6 @@
 {
+  "/_not-found/page": "app/_not-found/page.js",
   "/page": "app/page.js",
-  "/api/generate-ticket-pdf/route": "app/api/generate-ticket-pdf/route.js"
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/flights/search/route": "app/api/flights/search/route.js"
 }

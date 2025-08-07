@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BookingForm } from "@/components/booking-form"
 import { PaymentGateway } from "@/components/payment-gateway"
 import { PlaneTicket } from "@/components/plane-ticket"
+import { SeatMap } from "@/components/seat-map"
 import { Dialog, DialogContent } from "@/components/ui/dialog" // Import Dialog components
 
 interface Airport {
@@ -55,7 +56,7 @@ interface FlightSearchParams {
 
 export default function FlightBookingHome() {
   const [user, setUser] = useState<any | null>(null) // Store user object
-  const [currentView, setCurrentView] = useState<'search' | 'booking' | 'payment' | 'ticket' | 'confirmation'>('search')
+  const [currentView, setCurrentView] = useState<'search' | 'booking' | 'payment' | 'ticket' | 'confirmation' | 'seat-selection'>('search')
   const [selectedFlights, setSelectedFlights] = useState<{
     outbound?: Flight
     return?: Flight
@@ -72,6 +73,11 @@ export default function FlightBookingHome() {
   const [isSearching, setIsSearching] = useState(false)
   const [bookingData, setBookingData] = useState<any>(null)
   const [showLoginModal, setShowLoginModal] = useState(false) // State for login modal
+  const [selectedSeat, setSelectedSeat] = useState<{
+    seatNumber: string
+    seatType: string
+    price: number
+  } | null>(null)
 
   useEffect(() => {
     // Check for logged-in user on component mount
@@ -103,6 +109,7 @@ export default function FlightBookingHome() {
     setSelectedFlights({})
     setBookingData(null)
     setSearchResults(null)
+    setSelectedSeat(null)
   }
 
   const handleFlightSelect = (flight: Flight, type: 'outbound' | 'return') => {
@@ -162,8 +169,8 @@ export default function FlightBookingHome() {
         userId: user.id // Pass user ID for database booking
       })
       
-      console.log('Proceeding to payment with:', { passengers, totalAmount, flights: updatedFlights })
-      setCurrentView('payment')
+      console.log('Proceeding to seat selection with:', { passengers, totalAmount, flights: updatedFlights })
+      setCurrentView('seat-selection')
     } else {
       console.log('Waiting for more flight selections...')
     }
@@ -178,6 +185,7 @@ export default function FlightBookingHome() {
     setSelectedFlights({})
     setBookingData(null)
     setSearchResults(null)
+    setSelectedSeat(null)
   }
 
   const handleSearch = async () => {
@@ -394,12 +402,53 @@ export default function FlightBookingHome() {
             onBack={handleBackToSearch}
           />
         )
+      case 'seat-selection':
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Select Your Seats</h2>
+              <p className="text-gray-600">Choose your preferred seats for a comfortable journey</p>
+            </div>
+            
+            <SeatMap 
+              flight={selectedFlights.outbound!}
+              onSeatSelect={(seatNumber, seatType, price) => {
+                console.log(`Selected seat ${seatNumber} (${seatType}) for +$${price}`)
+                setSelectedSeat({ seatNumber, seatType, price })
+              }}
+              selectedSeat={selectedSeat?.seatNumber || ""}
+            />
+            
+            <div className="flex flex-col items-center space-y-4">
+              {selectedSeat && (
+                <div className="text-center p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="font-semibold text-green-800">
+                    Selected: Seat {selectedSeat.seatNumber}
+                  </p>
+                  <p className="text-sm text-green-600 capitalize">
+                    {selectedSeat.seatType.replace('-', ' ')} class
+                    {selectedSeat.price > 0 && ` (+$${selectedSeat.price})`}
+                  </p>
+                </div>
+              )}
+              <Button 
+                onClick={() => setCurrentView('payment')} 
+                size="lg" 
+                className="px-8"
+                disabled={!selectedSeat}
+              >
+                {selectedSeat ? 'Continue to Payment' : 'Please Select a Seat'}
+              </Button>
+            </div>
+          </div>
+        )
       case 'payment':
         return (
           <PaymentGateway
             selectedFlights={selectedFlights}
             passengerDetails={bookingData?.passengers || []}
-            totalAmount={bookingData?.totalAmount || 0}
+            totalAmount={(bookingData?.totalAmount || 0) + (selectedSeat?.price || 0)}
+            selectedSeat={selectedSeat || undefined}
             onPaymentSuccess={(data) => {
               setBookingData(data)
               setCurrentView('ticket')
@@ -416,6 +465,7 @@ export default function FlightBookingHome() {
               setSelectedFlights({})
               setBookingData(null)
               setSearchResults(null)
+              setSelectedSeat(null)
             }}
           />
         )

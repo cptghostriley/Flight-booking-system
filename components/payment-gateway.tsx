@@ -44,6 +44,11 @@ interface PaymentGatewayProps {
     gender: string
   }>
   totalAmount: number
+  selectedSeat?: {
+    seatNumber: string
+    seatType: string
+    price: number
+  }
   onPaymentSuccess: (bookingData: any) => void
   onBack: () => void
 }
@@ -52,6 +57,7 @@ export function PaymentGateway({
   selectedFlights, 
   passengerDetails, 
   totalAmount, 
+  selectedSeat,
   onPaymentSuccess, 
   onBack 
 }: PaymentGatewayProps) {
@@ -92,6 +98,7 @@ export function PaymentGateway({
           flights: selectedFlights,
           passengers: passengerDetails,
           totalAmount,
+          selectedSeat,
           paymentMethod,
           status: 'confirmed',
           bookingDate: new Date().toISOString()
@@ -411,6 +418,12 @@ export function PaymentGateway({
                   <div className="flex justify-between">
                     <span>Return Flight</span>
                     <span>${selectedFlights.return.price * passengerDetails.length}</span>
+                  </div>
+                )}
+                {selectedSeat && selectedSeat.price > 0 && (
+                  <div className="flex justify-between">
+                    <span>Seat {selectedSeat.seatNumber} ({selectedSeat.seatType.replace('-', ' ')})</span>
+                    <span>${selectedSeat.price}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm text-muted-foreground">

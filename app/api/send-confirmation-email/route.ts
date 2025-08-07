@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
+import jsPDF from 'jspdf'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -16,21 +17,59 @@ const createGmailTransporter = () => {
 }
 
 // Send email using Gmail as fallback
-const sendEmailWithGmail = async (to: string, subject: string, html: string, text: string) => {
-  const transporter = createGmailTransporter()
-  
-  const mailOptions = {
-    from: `"SkyBooker" <${process.env.GMAIL_USER}>`,
-    replyTo: process.env.GMAIL_USER,
-    to: to,
-    subject: subject,
-    html: html,
-    text: text,
-    // Add the same styling and formatting as Resend
-    attachDataUrls: true
+const sendEmailWithGmail = async (to: string, subject: string, html: string, text: string, pdfBuffer?: Buffer, bookingRef?: string) => {
+  try {
+    // Validate Gmail configuration
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      throw new Error('Gmail configuration missing: GMAIL_USER or GMAIL_APP_PASSWORD not set')
+    }
+    
+    console.log('🔧 Creating Gmail transporter...')
+    const transporter = createGmailTransporter()
+    
+    // Test the connection first
+    console.log('🔍 Verifying Gmail connection...')
+    await transporter.verify()
+    console.log('✅ Gmail connection verified')
+    
+    const mailOptions: any = {
+      from: `"SkyBooker" <${process.env.GMAIL_USER}>`,
+      replyTo: process.env.GMAIL_USER,
+      to: to,
+      subject: subject,
+      html: html,
+      text: text,
+      // Add the same styling and formatting as Resend
+      attachDataUrls: true
+    }
+    
+    // Add PDF attachment if provided
+    if (pdfBuffer && bookingRef) {
+      console.log(`📎 Adding PDF attachment: ticket-${bookingRef}.pdf (${pdfBuffer.length} bytes)`)
+      mailOptions.attachments = [
+        {
+          filename: `ticket-${bookingRef}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }
+      ]
+    }
+    
+    console.log('📤 Sending email via Gmail...')
+    const result = await transporter.sendMail(mailOptions)
+    console.log('✅ Gmail email sent successfully:', result.messageId)
+    
+    return result
+  } catch (gmailError: any) {
+    console.error('❌ Gmail sending failed:', gmailError)
+    console.error('Gmail error details:', {
+      message: gmailError.message,
+      code: gmailError.code,
+      command: gmailError.command,
+      response: gmailError.response
+    })
+    throw gmailError
   }
-  
-  return await transporter.sendMail(mailOptions)
 }
 
 interface Passenger {
@@ -62,6 +101,141 @@ interface BookingData {
   passengers: Passenger[]
   totalAmount: number
   bookingDate: string
+  selectedSeat?: {
+    seatNumber: string
+    seatType: string
+    price: number
+  }
+}
+
+// Generate PDF ticket
+const generateTicketPDF = (bookingData: BookingData) => {
+  try {
+    const pdf = new jsPDF('p', 'mm', 'a4')
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    
+    interface TextOptions {
+      fontSize?: number
+      fontWeight?: string
+      align?: string
+    }
+    
+    // Helper function to add text with proper positioning
+    const addText = (text: string, x: number, y: number, options: TextOptions = {}) => {
+      try {
+        pdf.setFontSize(options.fontSize || 12)
+        pdf.setFont('helvetica', options.fontWeight || 'normal')
+        if (options.align === 'center') {
+          const textWidth = pdf.getStringUnitWidth(text) * (options.fontSize || 12) / pdf.internal.scaleFactor
+          x = (pageWidth - textWidth) / 2
+        }
+        pdf.text(text, x, y)
+      } catch (textError) {
+        console.error('Error adding text to PDF:', textError)
+        // Fallback to simple text placement
+        pdf.text(text, x, y)
+      }
+    }
+
+    let yPosition = 20
+
+    // Header with error handling for color operations
+    try {
+      pdf.setFillColor(37, 99, 235) // Blue background
+      pdf.rect(0, 0, pageWidth, 40, 'F')
+      pdf.setTextColor(255, 255, 255) // White text
+    } catch (colorError) {
+      console.error('Error setting PDF colors:', colorError)
+      // Continue without fancy colors
+    }
+    
+    addText('SkyBooker', 20, 15, { fontSize: 20, fontWeight: 'bold' })
+    addText('Electronic Ticket', 20, 25, { fontSize: 12 })
+    addText(`Booking Reference: ${bookingData.bookingReference}`, 20, 35, { fontSize: 14, fontWeight: 'bold' })
+
+    pdf.setTextColor(0, 0, 0) // Reset to black
+    yPosition = 50
+
+    // Passenger Information
+    addText('PASSENGER INFORMATION', 20, yPosition, { fontSize: 14, fontWeight: 'bold' })
+    yPosition += 10
+    
+    bookingData.passengers.forEach((passenger, index: number) => {
+      addText(`Passenger ${index + 1}: ${passenger.firstName} ${passenger.lastName}`, 20, yPosition)
+      yPosition += 7
+      addText(`Email: ${passenger.email}`, 20, yPosition)
+      yPosition += 7
+      addText(`Phone: ${passenger.phone}`, 20, yPosition)
+      yPosition += 7
+      if (bookingData.selectedSeat) {
+        addText(`Seat: ${bookingData.selectedSeat.seatNumber} (${bookingData.selectedSeat.seatType.replace('-', ' ')})`, 20, yPosition)
+        yPosition += 7
+      }
+      yPosition += 10
+    })
+
+    // Flight Information
+    const flights = bookingData.flights
+    
+    if (flights.outbound) {
+      addText('OUTBOUND FLIGHT', 20, yPosition, { fontSize: 14, fontWeight: 'bold' })
+      yPosition += 10
+      addText(`${flights.outbound.airline} ${flights.outbound.flightNumber}`, 20, yPosition, { fontSize: 12, fontWeight: 'bold' })
+      yPosition += 7
+      addText(`From: ${flights.outbound.departure.airport} at ${flights.outbound.departure.time}`, 20, yPosition)
+      yPosition += 7
+      addText(`To: ${flights.outbound.arrival.airport} at ${flights.outbound.arrival.time}`, 20, yPosition)
+      yPosition += 7
+      addText(`Date: ${flights.outbound.departure.date}`, 20, yPosition)
+      yPosition += 7
+      addText(`Duration: ${flights.outbound.duration}`, 20, yPosition)
+      yPosition += 15
+    }
+
+    if (flights.return) {
+      addText('RETURN FLIGHT', 20, yPosition, { fontSize: 14, fontWeight: 'bold' })
+      yPosition += 10
+      addText(`${flights.return.airline} ${flights.return.flightNumber}`, 20, yPosition, { fontSize: 12, fontWeight: 'bold' })
+      yPosition += 7
+      addText(`From: ${flights.return.departure.airport} at ${flights.return.departure.time}`, 20, yPosition)
+      yPosition += 7
+      addText(`To: ${flights.return.arrival.airport} at ${flights.return.arrival.time}`, 20, yPosition)
+      yPosition += 7
+      addText(`Date: ${flights.return.departure.date}`, 20, yPosition)
+      yPosition += 7
+      addText(`Duration: ${flights.return.duration}`, 20, yPosition)
+      yPosition += 15
+    }
+
+    // Booking Summary
+    addText('BOOKING SUMMARY', 20, yPosition, { fontSize: 14, fontWeight: 'bold' })
+    yPosition += 10
+    addText(`Total Amount: $${bookingData.totalAmount}`, 20, yPosition, { fontSize: 12, fontWeight: 'bold' })
+    yPosition += 7
+    addText(`Booking Date: ${new Date(bookingData.bookingDate).toLocaleDateString()}`, 20, yPosition)
+    yPosition += 15
+
+    // Important Information
+    addText('IMPORTANT INFORMATION', 20, yPosition, { fontSize: 14, fontWeight: 'bold' })
+    yPosition += 10
+    addText('• Arrive at the airport at least 2 hours before departure', 20, yPosition)
+    yPosition += 7
+    addText('• Bring a valid government-issued photo ID', 20, yPosition)
+    yPosition += 7
+    addText('• Check-in online 24 hours before your flight', 20, yPosition)
+    yPosition += 7
+    addText('• Contact customer service for any changes or cancellations', 20, yPosition)
+
+    return pdf
+  } catch (pdfError) {
+    console.error('Critical error in PDF generation:', pdfError)
+    // Return a minimal PDF as fallback
+    const fallbackPdf = new jsPDF('p', 'mm', 'a4')
+    fallbackPdf.text('SkyBooker Ticket', 20, 20)
+    fallbackPdf.text(`Booking Reference: ${bookingData.bookingReference}`, 20, 30)
+    fallbackPdf.text('A detailed ticket will be provided at check-in.', 20, 40)
+    return fallbackPdf
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -101,20 +275,42 @@ export async function POST(request: NextRequest) {
     // Generate comprehensive email content
     const emailContent = generateEmailContent(bookingData)
     const emailHtml = generateHtmlContent(bookingData)
+    
+    // Generate PDF ticket
+    let pdfBuffer: Buffer | null = null
+    try {
+      const pdf = generateTicketPDF(bookingData)
+      pdfBuffer = Buffer.from(pdf.output('arraybuffer'))
+      console.log('✅ PDF ticket generated successfully')
+    } catch (pdfError) {
+      console.error('⚠️ PDF generation failed, sending email without attachment:', pdfError)
+      // Continue without PDF attachment
+    }
 
     try {
       // First, try sending with Resend
       console.log(`📧 Attempting to send email to: ${email}`)
       
-      const { data, error } = await resend.emails.send({
+      const resendEmailOptions: any = {
         from: 'SkyBooker <onboarding@resend.dev>',
         to: [email],
         subject: `Flight Booking Confirmed - ${bookingData.bookingReference}`,
         html: emailHtml,
         text: emailContent,
-        // Ensure consistent formatting
         replyTo: process.env.GMAIL_USER || 'noreply@skyBooker.com'
-      })
+      }
+      
+      // Add PDF attachment to Resend if available
+      if (pdfBuffer) {
+        resendEmailOptions.attachments = [
+          {
+            filename: `ticket-${bookingData.bookingReference}.pdf`,
+            content: pdfBuffer
+          }
+        ]
+      }
+      
+      const { data, error } = await resend.emails.send(resendEmailOptions)
 
       if (error) {
         console.error('Resend failed, trying Gmail fallback:', error)
@@ -127,7 +323,9 @@ export async function POST(request: NextRequest) {
               email,
               `Flight Booking Confirmed - ${bookingData.bookingReference}`,
               emailHtml,
-              emailContent
+              emailContent,
+              pdfBuffer || undefined,
+              bookingData.bookingReference
             )
             
             console.log('✅ Email sent successfully via Gmail:', gmailResult.messageId)
@@ -186,7 +384,9 @@ export async function POST(request: NextRequest) {
             email,
             `Flight Booking Confirmed - ${bookingData.bookingReference}`,
             emailHtml,
-            emailContent
+            emailContent,
+            pdfBuffer || undefined,
+            bookingData.bookingReference
           )
           
           console.log('✅ Email sent successfully via Gmail fallback:', gmailResult.messageId)
