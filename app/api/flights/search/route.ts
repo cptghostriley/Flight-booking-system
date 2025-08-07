@@ -1,7 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Flight interface for type safety
+interface Flight {
+  id: string
+  airline: string
+  flightNumber: string
+  departure: {
+    airport: string
+    time: string
+    date: string
+  }
+  arrival: {
+    airport: string
+    time: string
+    date: string
+  }
+  duration: string
+  price: number
+  stops: number
+  aircraft: string
+}
+
 // Mock flight data - in production, integrate with real flight APIs like Amadeus, Skyscanner, etc.
-const generateMockFlights = (from: string, to: string, date: string) => {
+const generateMockFlights = (from: string, to: string, date: string): Flight[] => {
   const airlines = ['American Airlines', 'Delta', 'United', 'Southwest', 'JetBlue', 'Alaska Airlines']
   const aircraft = ['Boeing 737', 'Airbus A320', 'Boeing 777', 'Airbus A330', 'Boeing 787']
   
@@ -60,7 +81,7 @@ export async function POST(request: NextRequest) {
     // Generate mock outbound flights
     const outboundFlights = generateMockFlights(from, to, departDate)
     
-    let returnFlights = []
+    let returnFlights: Flight[] = []
     if (tripType === 'round-trip' && returnDate) {
       returnFlights = generateMockFlights(to, from, returnDate)
     }

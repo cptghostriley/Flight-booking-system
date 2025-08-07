@@ -213,7 +213,7 @@ return (
               <Text style={totalLabel}>Total Amount Paid</Text>
             </Column>
             <Column>
-              <Text style={totalAmount}>${(totalAmount !== undefined && !isNaN(totalAmount)) ? totalAmount.toFixed(2) : '0.00'}</Text>
+              <Text style={totalAmountStyle}>${(totalAmount !== undefined && !isNaN(totalAmount)) ? totalAmount.toFixed(2) : '0.00'}</Text>
             </Column>
           </Row>
         </Section>
@@ -402,7 +402,7 @@ fontSize: '16px',
 fontWeight: 'bold',
 }
 
-const totalAmount = {
+const totalAmountStyle = {
 color: '#059669',
 fontSize: '24px',
 fontWeight: 'bold',

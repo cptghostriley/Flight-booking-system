@@ -35,9 +35,10 @@ export async function POST(request: NextRequest) {
 
     try {
       // Attempt to render the React component to an HTML string
-      const renderedHtml = render(BookingConfirmationEmail({ bookingData }));
+      const renderedResult = render(BookingConfirmationEmail({ bookingData }));
+      const renderedHtml = typeof renderedResult === 'string' ? renderedResult : String(renderedResult || '');
       // Ensure the rendered output is a non-empty string
-      if (typeof renderedHtml === 'string' && renderedHtml.trim().length > 0) {
+      if (renderedHtml && renderedHtml.trim().length > 0) {
         emailHtml = renderedHtml;
       } else {
         console.warn('React email render returned empty or invalid HTML. Using fallback.');
