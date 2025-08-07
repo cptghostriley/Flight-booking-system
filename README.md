@@ -1,6 +1,6 @@
 <md>
   
- ## **SkyBooker: Flight Booking System**
+ ## **SkyBooker: Flight Booking System ✈️**
  
 
 A modern and comprehensive flight booking application built with Next.js, designed to provide a seamless experience for searching, booking, and managing flights. This project includes user authentication, flight search capabilities, a booking flow with a mock payment gateway, and email confirmations.
