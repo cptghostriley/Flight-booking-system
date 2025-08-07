@@ -98,25 +98,42 @@ export function PaymentGateway({
         }
 
         // Send confirmation email
-        const emailResponse = await fetch('/api/send-confirmation-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: passengerDetails[0].email,
-            bookingData
+        try {
+          const emailResponse = await fetch('/api/send-confirmation-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: passengerDetails[0].email,
+              bookingData
+            }),
+            // Add timeout and mobile-friendly options
+            signal: AbortSignal.timeout(30000) // 30 second timeout
           })
-        })
 
-        const emailResult = await emailResponse.json()
-        
-        if (emailResult.success) {
-          setEmailStatus('sent')
-          console.log('✅ Email sent successfully:', emailResult)
-        } else {
+          if (!emailResponse.ok) {
+            throw new Error(`Email API returned ${emailResponse.status}: ${emailResponse.statusText}`)
+          }
+
+          const emailResult = await emailResponse.json()
+          
+          if (emailResult.success) {
+            if (emailResult.emailSent) {
+              setEmailStatus('sent')
+              console.log('✅ Email sent successfully:', emailResult)
+            } else {
+              setEmailStatus('error')
+              console.log('⚠️ Booking confirmed, email pending:', emailResult)
+            }
+          } else {
+            setEmailStatus('error')
+            console.error('❌ Email failed:', emailResult)
+          }
+        } catch (emailError) {
+          console.error('❌ Email sending error:', emailError)
           setEmailStatus('error')
-          console.error('❌ Email failed:', emailResult)
+          // Don't fail the entire booking if email fails
         }
 
         // Small delay to show email status
@@ -151,9 +168,9 @@ export function PaymentGateway({
         )
       case 'error':
         return (
-          <div className="flex items-center space-x-2 text-red-600">
+          <div className="flex items-center space-x-2 text-amber-600">
             <Mail className="h-4 w-4" />
-            <span>Email failed (booking still confirmed)</span>
+            <span>Email pending (booking confirmed)</span>
           </div>
         )
       default:
