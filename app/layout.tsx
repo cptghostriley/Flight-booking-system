@@ -1,9 +1,6 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Toaster } from "@/components/ui/toaster"
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'SkyBooker - Flight Booking System',
@@ -36,16 +33,17 @@ export const metadata: Metadata = {
     title: 'SkyBooker - Flight Booking System',
     description: 'Book flights worldwide with our comprehensive flight booking platform',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'SkyBooker',
   },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({
@@ -64,17 +62,17 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#2563eb" />
         <meta name="msapplication-tap-highlight" content="no" />
         
-        <link rel="apple-touch-icon" href="/placeholder-logo.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/placeholder-logo.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/placeholder-logo.png" />
-        <link rel="mask-icon" href="/placeholder-logo.svg" color="#2563eb" />
-        <link rel="shortcut icon" href="/placeholder-logo.png" />
+        <link rel="apple-touch-icon" href="/skyb.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/skyb.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/skyb.png" />
+        <link rel="mask-icon" href="/skyb.png" color="#2563eb" />
+        <link rel="shortcut icon" href="/skyb.png" />
         
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:url" content="https://localhost:3000" />
         <meta name="twitter:title" content="SkyBooker - Flight Booking System" />
         <meta name="twitter:description" content="Book flights worldwide with our comprehensive flight booking platform" />
-        <meta name="twitter:image" content="https://localhost:3000/placeholder-logo.png" />
+        <meta name="twitter:image" content="https://localhost:3000/skyb.png" />
         <meta name="twitter:creator" content="@skyBooker" />
         
         <meta property="og:type" content="website" />
@@ -82,9 +80,9 @@ export default function RootLayout({
         <meta property="og:description" content="Book flights worldwide with our comprehensive flight booking platform" />
         <meta property="og:site_name" content="SkyBooker" />
         <meta property="og:url" content="https://localhost:3000" />
-        <meta property="og:image" content="https://localhost:3000/placeholder-logo.png" />
+        <meta property="og:image" content="https://localhost:3000/skyb.png" />
       </head>
-      <body className={inter.className}>
+      <body className="font-sans antialiased">
         {children}
         <Toaster />
         <script

@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { CalendarIcon, Plane, Search, Users, Check, LogOut } from 'lucide-react'
+import { CalendarIcon, Search, Users, Check, LogOut } from 'lucide-react'
+import Image from 'next/image'
 import { AirportSearch } from "@/components/airport-search"
 import { LoginForm } from "@/components/login-form"
 import { FlightResults } from "@/components/flight-results"
@@ -17,6 +18,7 @@ import { PaymentGateway } from "@/components/payment-gateway"
 import { PlaneTicket } from "@/components/plane-ticket"
 import { SeatMap } from "@/components/seat-map"
 import { Dialog, DialogContent } from "@/components/ui/dialog" // Import Dialog components
+import { SplashScreen } from "@/components/splash-screen"
 
 interface Airport {
   code: string
@@ -56,6 +58,7 @@ interface FlightSearchParams {
 
 export default function FlightBookingHome() {
   const [user, setUser] = useState<any | null>(null) // Store user object
+  const [showSplash, setShowSplash] = useState(true) // State for splash screen
   const [currentView, setCurrentView] = useState<'search' | 'booking' | 'payment' | 'ticket' | 'confirmation' | 'seat-selection'>('search')
   const [selectedFlights, setSelectedFlights] = useState<{
     outbound?: Flight
@@ -491,6 +494,11 @@ export default function FlightBookingHome() {
     }
   }
 
+  // Show splash screen on first load
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
@@ -498,7 +506,14 @@ export default function FlightBookingHome() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Plane className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+              <div className="w-6 h-6 sm:w-8 sm:h-8 relative">
+                <Image
+                  src="/skyb.png"
+                  alt="SkyBooker Logo"
+                  fill
+                  className="object-contain"
+                />
+              </div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">SkyBooker</h1>
             </div>
             {user ? (

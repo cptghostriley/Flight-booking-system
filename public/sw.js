@@ -4,7 +4,7 @@ const urlsToCache = [
   '/static/js/bundle.js',
   '/static/css/main.css',
   '/manifest.json',
-  '/placeholder-logo.png'
+  '/skyb.png'
 ];
 
 // Install event

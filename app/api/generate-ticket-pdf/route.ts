@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
 import jsPDF from 'jspdf'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
-// Gmail configuration for fallback email sending
+// Gmail configuration for email sending
 const createGmailTransporter = () => {
   return nodemailer.createTransport({
     service: 'gmail',
@@ -289,73 +286,43 @@ SkyBooker Team`
       `
 
       try {
-        // Try Resend first
-        const data = await resend.emails.send({
-          from: 'SkyBooker <onboarding@resend.dev>',
-          to: [passengerEmail],
+        // Send using Gmail
+        if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+          throw new Error('Gmail configuration missing')
+        }
+        
+        const transporter = createGmailTransporter()
+        
+        const mailOptions = {
+          from: `"SkyBooker" <${process.env.GMAIL_USER}>`,
+          replyTo: process.env.GMAIL_USER,
+          to: passengerEmail,
           subject: subject,
-          text: emailContent,
           html: emailHtml,
-          replyTo: process.env.GMAIL_USER || 'noreply@skyBooker.com',
+          text: emailContent,
           attachments: [
             {
               filename: `ticket-${bookingData.bookingReference}.pdf`,
-              content: pdfBuffer
+              content: pdfBuffer,
+              contentType: 'application/pdf'
             }
           ]
-        })
-
+        }
+        
+        const gmailResult = await transporter.sendMail(mailOptions)
+        
         return NextResponse.json({
           success: true,
           message: 'Ticket PDF sent successfully',
-          emailId: data.data?.id,
-          provider: 'resend'
+          emailId: gmailResult.messageId,
+          provider: 'gmail'
         })
-      } catch (resendError) {
-        console.error('Resend failed, trying Gmail fallback:', resendError)
-        
-        // Gmail fallback
-        if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-          try {
-            const transporter = createGmailTransporter()
-            
-            const mailOptions = {
-              from: `"SkyBooker" <${process.env.GMAIL_USER}>`,
-              replyTo: process.env.GMAIL_USER,
-              to: passengerEmail,
-              subject: subject,
-              html: emailHtml,
-              text: emailContent,
-              attachments: [
-                {
-                  filename: `ticket-${bookingData.bookingReference}.pdf`,
-                  content: pdfBuffer,
-                  contentType: 'application/pdf'
-                }
-              ]
-            }
-            
-            const gmailResult = await transporter.sendMail(mailOptions)
-            
-            return NextResponse.json({
-              success: true,
-              message: 'Ticket PDF sent successfully via Gmail',
-              emailId: gmailResult.messageId,
-              provider: 'gmail'
-            })
-          } catch (gmailError) {
-            console.error('Gmail fallback failed:', gmailError)
-            return NextResponse.json({
-              success: false,
-              error: 'Failed to send email with both services'
-            }, { status: 500 })
-          }
-        } else {
-          return NextResponse.json({
-            success: false,
-            error: 'Email service unavailable'
-          }, { status: 500 })
-        }
+      } catch (emailError) {
+        console.error('Gmail email sending failed:', emailError)
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to send email'
+        }, { status: 500 })
       }
     }
 

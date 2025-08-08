@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import nodemailer from 'nodemailer'
 import jsPDF from 'jspdf'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
-// Gmail configuration for fallback email sending
+// Gmail configuration for email sending
 const createGmailTransporter = () => {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    throw new Error('Gmail configuration missing: GMAIL_USER or GMAIL_APP_PASSWORD not set')
+  }
+  
   return nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -16,14 +17,9 @@ const createGmailTransporter = () => {
   })
 }
 
-// Send email using Gmail as fallback
+// Send email using Gmail
 const sendEmailWithGmail = async (to: string, subject: string, html: string, text: string, pdfBuffer?: Buffer, bookingRef?: string) => {
   try {
-    // Validate Gmail configuration
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-      throw new Error('Gmail configuration missing: GMAIL_USER or GMAIL_APP_PASSWORD not set')
-    }
-    
     console.log('🔧 Creating Gmail transporter...')
     const transporter = createGmailTransporter()
     
@@ -32,15 +28,20 @@ const sendEmailWithGmail = async (to: string, subject: string, html: string, tex
     await transporter.verify()
     console.log('✅ Gmail connection verified')
     
-    const mailOptions: any = {
+    const mailOptions = {
       from: `"SkyBooker" <${process.env.GMAIL_USER}>`,
       replyTo: process.env.GMAIL_USER,
       to: to,
       subject: subject,
       html: html,
       text: text,
-      // Add the same styling and formatting as Resend
-      attachDataUrls: true
+      // Add styling and formatting
+      attachDataUrls: true,
+      attachments: [] as Array<{
+        filename: string;
+        content: Buffer;
+        contentType: string;
+      }>
     }
     
     // Add PDF attachment if provided
@@ -60,13 +61,11 @@ const sendEmailWithGmail = async (to: string, subject: string, html: string, tex
     console.log('✅ Gmail email sent successfully:', result.messageId)
     
     return result
-  } catch (gmailError: any) {
+  } catch (gmailError: unknown) {
     console.error('❌ Gmail sending failed:', gmailError)
     console.error('Gmail error details:', {
-      message: gmailError.message,
-      code: gmailError.code,
-      command: gmailError.command,
-      response: gmailError.response
+      message: gmailError instanceof Error ? gmailError.message : 'Unknown error',
+      error: gmailError
     })
     throw gmailError
   }
@@ -257,8 +256,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!process.env.RESEND_API_KEY) {
-      console.log('RESEND_API_KEY not found, simulating email send...')
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      console.log('Gmail configuration not found, simulating email send...')
       
       const emailContent = generateEmailContent(bookingData)
       console.log('📧 Email would be sent to:', email)
@@ -288,124 +287,33 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      // First, try sending with Resend
-      console.log(`📧 Attempting to send email to: ${email}`)
+      // Send email using Gmail
+      console.log(`📧 Sending email to: ${email}`)
       
-      const resendEmailOptions: any = {
-        from: 'SkyBooker <onboarding@resend.dev>',
-        to: [email],
-        subject: `Flight Booking Confirmed - ${bookingData.bookingReference}`,
-        html: emailHtml,
-        text: emailContent,
-        replyTo: process.env.GMAIL_USER || 'noreply@skyBooker.com'
-      }
+      const gmailResult = await sendEmailWithGmail(
+        email,
+        `Flight Booking Confirmed - ${bookingData.bookingReference}`,
+        emailHtml,
+        emailContent,
+        pdfBuffer || undefined,
+        bookingData.bookingReference
+      )
       
-      // Add PDF attachment to Resend if available
-      if (pdfBuffer) {
-        resendEmailOptions.attachments = [
-          {
-            filename: `ticket-${bookingData.bookingReference}.pdf`,
-            content: pdfBuffer
-          }
-        ]
-      }
-      
-      const { data, error } = await resend.emails.send(resendEmailOptions)
-
-      if (error) {
-        console.error('Resend failed, trying Gmail fallback:', error)
-        
-        // Try Gmail fallback if Resend fails
-        if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-          try {
-            console.log('📧 Sending via Gmail fallback...')
-            const gmailResult = await sendEmailWithGmail(
-              email,
-              `Flight Booking Confirmed - ${bookingData.bookingReference}`,
-              emailHtml,
-              emailContent,
-              pdfBuffer || undefined,
-              bookingData.bookingReference
-            )
-            
-            console.log('✅ Email sent successfully via Gmail:', gmailResult.messageId)
-            
-            return NextResponse.json({
-              success: true,
-              message: 'Confirmation email sent successfully via Gmail',
-              emailSent: true,
-              emailId: gmailResult.messageId,
-              provider: 'gmail',
-              bookingReference: bookingData.bookingReference
-            }, { headers })
-            
-          } catch (gmailError) {
-            console.error('Gmail fallback also failed:', gmailError)
-            
-            return NextResponse.json({
-              success: true,
-              message: 'Booking confirmed, email will be sent shortly',
-              emailSent: false,
-              error: 'Both email services temporarily unavailable',
-              bookingReference: bookingData.bookingReference
-            }, { headers })
-          }
-        } else {
-          console.log('Gmail not configured, skipping fallback')
-          
-          return NextResponse.json({
-            success: true,
-            message: 'Booking confirmed, email will be sent shortly',
-            emailSent: false,
-            error: 'Email delivery pending',
-            bookingReference: bookingData.bookingReference
-          }, { headers })
-        }
-      }
-
-      console.log('✅ Email sent successfully via Resend:', data)
+      console.log('✅ Email sent successfully via Gmail:', gmailResult.messageId)
       
       return NextResponse.json({
         success: true,
         message: 'Confirmation email sent successfully',
         emailSent: true,
-        emailId: data?.id,
-        provider: 'resend',
+        emailId: gmailResult.messageId,
+        provider: 'gmail',
         bookingReference: bookingData.bookingReference
       }, { headers })
+      
     } catch (emailError) {
-      console.error('Email send exception:', emailError)
+      console.error('Gmail email sending failed:', emailError)
       
-      // Try Gmail fallback if Resend throws an exception
-      if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-        try {
-          console.log('📧 Exception occurred, trying Gmail fallback...')
-          const gmailResult = await sendEmailWithGmail(
-            email,
-            `Flight Booking Confirmed - ${bookingData.bookingReference}`,
-            emailHtml,
-            emailContent,
-            pdfBuffer || undefined,
-            bookingData.bookingReference
-          )
-          
-          console.log('✅ Email sent successfully via Gmail fallback:', gmailResult.messageId)
-          
-          return NextResponse.json({
-            success: true,
-            message: 'Confirmation email sent successfully via Gmail',
-            emailSent: true,
-            emailId: gmailResult.messageId,
-            provider: 'gmail',
-            bookingReference: bookingData.bookingReference
-          }, { headers })
-          
-        } catch (gmailError) {
-          console.error('Gmail fallback also failed:', gmailError)
-        }
-      }
-      
-      // Both services failed
+      // Return success for booking but indicate email issue
       return NextResponse.json({
         success: true,
         message: 'Booking confirmed, email will be sent shortly',

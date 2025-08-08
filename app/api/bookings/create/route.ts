@@ -2,9 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/db' // Import the database client
 import { render } from '@react-email/render'
 import { BookingConfirmationEmail } from '@/components/emails/booking-confirmation'
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Gmail configuration for email sending
+const createGmailTransporter = () => {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    throw new Error('Gmail configuration missing: GMAIL_USER or GMAIL_APP_PASSWORD not set')
+  }
+  
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD
+    }
+  })
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,8 +70,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Send confirmation email
-    if (!process.env.RESEND_API_KEY) {
-      console.log('RESEND_API_KEY not found, simulating email send...')
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      console.log('Gmail configuration not found, simulating email send...')
       const emailContent = generateEmailContent(emailBookingData)
       console.log('📧 Email would be sent to:', passengers[0]?.email)
       console.log('📧 Email content:', emailContent)
@@ -85,19 +98,22 @@ export async function POST(request: NextRequest) {
         emailHtml = fallbackHtml;
       }
 
-      const { data, error } = await resend.emails.send({
-        from: 'SkyBooker <onboarding@resend.dev>', // Use onboarding@resend.dev for testing if your domain is not verified
-        to: [passengers[0]?.email || ''], // Ensure email is not empty
-        subject: `Flight Booking Confirmed - ${bookingReference}`,
-        html: emailHtml,
-        text: generateEmailContent(emailBookingData)
-      })
-
-      if (error) {
-        console.error('Resend error:', error)
+      try {
+        const transporter = createGmailTransporter()
+        
+        const mailOptions = {
+          from: `"SkyBooker" <${process.env.GMAIL_USER}>`,
+          to: passengers[0]?.email || '',
+          subject: `Flight Booking Confirmed - ${bookingReference}`,
+          html: emailHtml,
+          text: generateEmailContent(emailBookingData)
+        }
+        
+        const result = await transporter.sendMail(mailOptions)
+        console.log('✅ Email sent successfully via Gmail:', result.messageId)
+      } catch (emailError) {
+        console.error('Gmail email sending failed:', emailError)
         // Do not return error here, booking is still confirmed. Log it.
-      } else {
-        console.log('✅ Email sent successfully:', data)
       }
     }
     
